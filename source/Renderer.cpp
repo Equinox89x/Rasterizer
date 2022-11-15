@@ -164,26 +164,6 @@ void dae::Renderer::HandleRender(const Vector2& triangleV0, const Vector2& trian
 	}
 }
 
-void dae::Renderer::RenderMesh()
-{
-	//1 Loop through meshes
-	for (int triangleIter = 0; triangleIter < m_Meshes.size(); triangleIter++)
-	{
-		Mesh& mesh{ m_Meshes[triangleIter] };
-		switch (mesh.primitiveTopology)
-		{
-		case PrimitiveTopology::TriangeList:
-			RenderMeshTriangleList(mesh);
-			break;
-		case PrimitiveTopology::TriangleStrip:
-			RenderTriangleStrip(mesh);
-			break;
-		default:
-			break;
-		}
-	}
-}
-
 void dae::Renderer::RenderMeshTriangleList(const Mesh& mesh)
 {
 	ColorRGB finalColor{};
@@ -192,10 +172,13 @@ void dae::Renderer::RenderMeshTriangleList(const Mesh& mesh)
 	{
 		//for every 3rd indice, calculate the triangle and it's color
 		if (indiceIter % 3 == 0) {
+
+			#pragma region Calculate the triangles from a mesh
 			int indice1{ int(mesh.indices[indiceIter]) };
 			int indice2{ int(mesh.indices[indiceIter + 1]) };
 			int indice3{ int(mesh.indices[indiceIter + 2]) };
 			std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
+			#pragma endregion
 
 			#pragma region Vertex screenCoordinate
 			std::vector<Vertex> verts{ };
@@ -217,7 +200,7 @@ void dae::Renderer::RenderMeshTriangleList(const Mesh& mesh)
 	}
 }
 
-void dae::Renderer::RenderTriangleStrip(const Mesh& mesh)
+void dae::Renderer::RenderMeshTriangleStrip(const Mesh& mesh)
 {
 	ColorRGB finalColor{};
 	//loop through indices (triangle ID's)
@@ -225,6 +208,8 @@ void dae::Renderer::RenderTriangleStrip(const Mesh& mesh)
 	{
 		//for every 3rd indice, calculate the triangle and it's color
 		if (indiceIter % 3 == 0) {
+
+			#pragma region Calculate the triangles from a mesh
 			int indice1{ int(mesh.indices[indiceIter]) };
 			int indice2{ int(mesh.indices[indiceIter + 1]) };
 			int indice3{};
@@ -235,6 +220,7 @@ void dae::Renderer::RenderTriangleStrip(const Mesh& mesh)
 				indice3 = int(mesh.indices[indiceIter + 2]);
 			}
 			std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
+			#pragma endregion
 
 			#pragma region Vertex screenCoordinate
 			std::vector<Vertex> verts{ };
@@ -285,6 +271,26 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 
 		Vertex vert{ Vector3{ projectedVertexX, projectedVertexY , projectedVertexZ }, vertices_in[i].color };
 		vertices_out[i] = vert;
+	}
+}
+
+void dae::Renderer::RenderMesh()
+{
+	//1 Loop through meshes
+	for (int triangleIter = 0; triangleIter < m_Meshes.size(); triangleIter++)
+	{
+		Mesh& mesh{ m_Meshes[triangleIter] };
+		switch (mesh.primitiveTopology)
+		{
+		case PrimitiveTopology::TriangeList:
+			RenderMeshTriangleList(mesh);
+			break;
+		case PrimitiveTopology::TriangleStrip:
+			RenderMeshTriangleStrip(mesh);
+			break;
+		default:
+			break;
+		}
 	}
 }
 

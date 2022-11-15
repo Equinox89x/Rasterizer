@@ -9,6 +9,9 @@
 struct SDL_Window;
 struct SDL_Surface;
 
+#define Strip
+//#define List
+
 namespace dae
 {
 	class Texture;
@@ -35,7 +38,7 @@ namespace dae
 		void HandleRender(const Vector2& triangleV0, const Vector2& triangleV1, const Vector2& triangleV2, const Vector2& a, const Vector2& b, const Vector2& c, std::vector<Vertex>& verts, ColorRGB& finalColor);
 		void RenderMesh();
 
-		void RenderTriangleStrip(const Mesh& mesh);
+		void RenderMeshTriangleStrip(const Mesh& mesh);
 		void RenderMeshTriangleList(const Mesh& mesh);
 
 		bool SaveBufferToImage() const;
@@ -129,6 +132,7 @@ namespace dae
 		#pragma endregion
 
 		#pragma region Using meshes
+		#ifdef Strip
 		std::vector<Mesh> m_Meshes{
 			Mesh{
 				{
@@ -152,28 +156,30 @@ namespace dae
 				PrimitiveTopology::TriangleStrip
 			}
 		};
-			
-		//std::vector<Mesh> m_Meshes{
-		//Mesh{
-		//	{
-		//		Vertex{{-3,3,-2}},
-		//		Vertex{{0,3,-2}},
-		//		Vertex{{3,3,-2}},
-		//		Vertex{{ -3,0,-2}},
-		//		Vertex{{0,0,-2}},
-		//		Vertex{{3,0,-2}},
-		//		Vertex{{-3,-3,-2}},
-		//		Vertex{{0,-3,-2}},
-		//		Vertex{{3,-3,-2}}
-		//	},
-		//	{
-		//		3,0,1,   1,4,3,   4,1,2,
-		//		2,5,4,   6,3,4,   4,7,6,
-		//		7,4,5,   5,8,7
-		//	},
-		//	PrimitiveTopology::TriangeList
-		//}
-		//};
+		#endif // Strip
+		#ifdef List
+		std::vector<Mesh> m_Meshes{
+		Mesh{
+			{
+				Vertex{{-3,3,-2}},
+				Vertex{{0,3,-2}},
+				Vertex{{3,3,-2}},
+				Vertex{{ -3,0,-2}},
+				Vertex{{0,0,-2}},
+				Vertex{{3,0,-2}},
+				Vertex{{-3,-3,-2}},
+				Vertex{{0,-3,-2}},
+				Vertex{{3,-3,-2}}
+			},
+			{
+				3,0,1,   1,4,3,   4,1,2,
+				2,5,4,   6,3,4,   4,7,6,
+				7,4,5,   5,8,7
+			},
+			PrimitiveTopology::TriangeList
+		}
+		};
+		#endif // List
 		#pragma endregion
 		#pragma endregion
 
