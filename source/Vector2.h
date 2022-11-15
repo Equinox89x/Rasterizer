@@ -21,6 +21,7 @@ namespace dae
 
 		//Member Operators
 		Vector2 operator*(float scale) const;
+		//Vector2 operator*(const Vector2& v) const;
 		Vector2 operator/(float scale) const;
 		Vector2 operator+(const Vector2& v) const;
 		Vector2 operator-(const Vector2& v) const;
