@@ -11,9 +11,6 @@
 
 using namespace dae;
 
-//#define W1
-#define W2
-
 Renderer::Renderer(SDL_Window* pWindow) :
 	m_pWindow(pWindow)
 {
@@ -25,23 +22,30 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	m_pBackBuffer = SDL_CreateRGBSurface(0, m_Width, m_Height, 32, 0, 0, 0, 0);
 	m_pBackBufferPixels = (uint32_t*)m_pBackBuffer->pixels;
 
-	m_pColorBuffer = new ColorRGB[m_Width * m_Height];
-	for (size_t i = 0; i < m_Width * m_Height; i++)
+	int size{ m_Width * m_Height };
+	m_pColorBuffer = new ColorRGB[size];
+	for (int i{0}; i < size; i++)
 	{
 		m_pColorBuffer[i] = colors::Gray;
 	}
-	m_pDepthBufferPixels = new float[m_Width * m_Height];
-	for (size_t i = 0; i < m_Width * m_Height; i++)
+	m_pDepthBufferPixels = new float[size];
+	for (int i{0}; i < size; i++)
 	{
 		m_pDepthBufferPixels[i] = FLT_MAX;
 	}
-
 	//Initialize Camera
 	m_Camera.Initialize(60.f, { .0f,.0f,-10.f });
+	
+	#ifdef W2Img
+	m_pTexture = Texture::LoadFromFile("Resources/uv_grid_2.png");
+	#endif
 }
 
 Renderer::~Renderer()
 {
+	#ifdef W2Img
+	delete m_pTexture;
+	#endif
 	delete[] m_pDepthBufferPixels;
 	delete[] m_pColorBuffer;
 }
@@ -56,13 +60,14 @@ void Renderer::Render()
 	//@START
 	//Lock BackBuffer
 	SDL_LockSurface(m_pBackBuffer);
-	
-	for (size_t i = 0; i < m_Width * m_Height; i++)
+
+	int size{ m_Width * m_Height };
+	for (int i{0}; i < size; i++)
 	{
 		m_pColorBuffer[i] = colors::Gray;
 	}
 
-	for (size_t i = 0; i < m_Width * m_Height; i++)
+	for (int i{0}; i < size; i++)
 	{
 		m_pDepthBufferPixels[i] = FLT_MAX;
 	}
@@ -74,6 +79,9 @@ void Renderer::Render()
 	#ifdef W2
 	RenderMesh();
 	#endif // W2
+	#ifdef W2Img
+	RenderMesh();
+	#endif // W2Img
 
 	//@END
 	//Update SDL Surface
@@ -82,34 +90,24 @@ void Renderer::Render()
 	SDL_UpdateWindowSurface(m_pWindow);
 }
 
-void dae::Renderer::RenderTriangleList()
+/// <summary>
+/// Rendering the triangles
+/// </summary>
+/// <param name="verts">The vertexes to loop through</param>
+/// <param name="finalColor">The color to output</param>
+void dae::Renderer::HandleRender(std::vector<Vertex>& verts, ColorRGB& finalColor)
 {
-	ColorRGB finalColor{};
-	//1 Loop through triangles
-	for (int triangleIter{}; triangleIter < m_Triangles.size(); triangleIter++)
-	{
-		#pragma region Vertex screenCoordinate
-		//with triangle list
-		std::vector<Vertex> verts{};
-		VertexTransformationFunction(m_Triangles[triangleIter], verts);
+	//Triangle edge
+	const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
+	const Vector2 b{ verts[2].position.x - verts[1].position.x, verts[2].position.y - verts[1].position.y };
+	const Vector2 c{ verts[0].position.x - verts[2].position.x, verts[0].position.y - verts[2].position.y };
 
-		//Triangle edge
-		const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
-		const Vector2 b{ verts[2].position.x - verts[1].position.x, verts[2].position.y - verts[1].position.y };
-		const Vector2 c{ verts[0].position.x - verts[2].position.x, verts[0].position.y - verts[2].position.y };
+	//Triangle verts
+	const Vector2 triangleV0{ verts[0].position.x, verts[0].position.y };
+	const Vector2 triangleV1{ verts[1].position.x, verts[1].position.y };
+	const Vector2 triangleV2{ verts[2].position.x, verts[2].position.y };
+	//Texture* tex = Texture::LoadFromFile("Resources/uv_grid_2.png");
 
-		//Triangle verts
-		const Vector2 triangleV0{ verts[0].position.x, verts[0].position.y };
-		const Vector2 triangleV1{ verts[1].position.x, verts[1].position.y };
-		const Vector2 triangleV2{ verts[2].position.x, verts[2].position.y };
-		#pragma endregion
-
-		HandleRender(triangleV0, triangleV1, triangleV2, a, b, c, verts, finalColor);
-	}
-}
-
-void dae::Renderer::HandleRender(const Vector2& triangleV0, const Vector2& triangleV1, const Vector2& triangleV2, const Vector2& a, const Vector2& b, const Vector2& c, std::vector<Vertex>& verts, ColorRGB& finalColor)
-{
 	//Loop through vertices
 	for (int px{}; px < m_Width; ++px)
 	{
@@ -140,13 +138,27 @@ void dae::Renderer::HandleRender(const Vector2& triangleV0, const Vector2& trian
 				//if (totalWeight == 1) {}
 
 				//depth test
-				float interpolatedDepth{ w2 - w0 };
-				float depth{ w0 + ((w1 / 100) * interpolatedDepth) }; // 100 -> for percentage
-				if (depth > m_pDepthBufferPixels[currentPixel]) {
+				float interpolatedDepth{ 1 / verts[0].position.z * w0 + 1 / verts[1].position.z * w1 + 1 / verts[2].position.z * w2 };
+				float actualDepth = 1 / interpolatedDepth;
+				if (actualDepth > m_pDepthBufferPixels[currentPixel]) {
 					continue;
 				}
-				m_pDepthBufferPixels[currentPixel] = depth;
+
+				m_pDepthBufferPixels[currentPixel] = actualDepth;
+
+				#ifdef W1
 				ColorRGB interpolatedColor{ (verts[0].color * w0) + (verts[1].color * w1) + (verts[2].color * w2) };
+				#endif
+
+				#ifdef W2
+				ColorRGB interpolatedColor{ (verts[0].color * w0) + (verts[1].color * w1) + (verts[2].color * w2) };
+				#endif
+
+				#ifdef W2Img
+				//ColorRGB interpolatedColor{ (tex->Sample(pixel) * w0) + (tex->Sample(pixel) * w1) + (tex->Sample(pixel) * w2)};
+				ColorRGB interpolatedColor{ (m_pTexture->Sample(pixel) * w0) + (m_pTexture->Sample(pixel) * w1) + (m_pTexture->Sample(pixel) * w2)};
+				#endif
+
 				m_pColorBuffer[currentPixel] = interpolatedColor;
 			}
 
@@ -164,84 +176,88 @@ void dae::Renderer::HandleRender(const Vector2& triangleV0, const Vector2& trian
 	}
 }
 
+/// <summary>
+/// Render the list of triangles (list of a list of Vertexes)
+/// </summary>
+void dae::Renderer::RenderTriangleList()
+{
+	ColorRGB finalColor{};
+	//1 Loop through triangles
+	for (int triangleIter{}; triangleIter < m_Triangles.size(); triangleIter++)
+	{
+		std::vector<Vertex> verts{};
+		VertexTransformationFunction(m_Triangles[triangleIter], verts);
+
+		HandleRender(verts, finalColor);
+	}
+}
+
+/// <summary>
+/// Render the Mesh with List topology
+/// </summary>
+/// <param name="mesh">The mesh as const ref</param>
 void dae::Renderer::RenderMeshTriangleList(const Mesh& mesh)
 {
 	ColorRGB finalColor{};
 	//loop through indices (triangle ID's)
-	for (int indiceIter = 0; indiceIter < mesh.indices.size(); indiceIter++)
+	for (int indiceIter = 0; indiceIter < mesh.indices.size(); indiceIter += 3)
 	{
 		//for every 3rd indice, calculate the triangle and it's color
-		if (indiceIter % 3 == 0) {
+		#pragma region Calculate the triangles from a mesh
+		int indice1{ int(mesh.indices[indiceIter]) };
+		int indice2{ int(mesh.indices[indiceIter + 1]) };
+		int indice3{ int(mesh.indices[indiceIter + 2]) };
+		std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
+		#pragma endregion
 
-			#pragma region Calculate the triangles from a mesh
-			int indice1{ int(mesh.indices[indiceIter]) };
-			int indice2{ int(mesh.indices[indiceIter + 1]) };
-			int indice3{ int(mesh.indices[indiceIter + 2]) };
-			std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
-			#pragma endregion
+		std::vector<Vertex> verts{ };
+		VertexTransformationFunction(triangleVerts, verts);
 
-			#pragma region Vertex screenCoordinate
-			std::vector<Vertex> verts{ };
-			VertexTransformationFunction(triangleVerts, verts);
-
-			//Triangle edge
-			const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
-			const Vector2 b{ verts[2].position.x - verts[1].position.x, verts[2].position.y - verts[1].position.y };
-			const Vector2 c{ verts[0].position.x - verts[2].position.x, verts[0].position.y - verts[2].position.y };
-
-			//Triangle verts
-			const Vector2 triangleV0{ verts[0].position.x, verts[0].position.y };
-			const Vector2 triangleV1{ verts[1].position.x, verts[1].position.y };
-			const Vector2 triangleV2{ verts[2].position.x, verts[2].position.y };
-			#pragma endregion
-
-			HandleRender(triangleV0, triangleV1, triangleV2, a, b, c, verts, finalColor);
-		}
+		HandleRender(verts, finalColor);
 	}
 }
 
+/// <summary>
+/// Render the Mesh with Strip topology
+/// </summary>
+/// <param name="mesh">The mesh as const ref</param>
 void dae::Renderer::RenderMeshTriangleStrip(const Mesh& mesh)
 {
 	ColorRGB finalColor{};
 	//loop through indices (triangle ID's)
-	for (int indiceIter = 0; indiceIter < mesh.indices.size(); indiceIter++)
+	const int size{ static_cast<int>(mesh.indices.size()) };
+	for (int indiceIter = 0; indiceIter < size; indiceIter++)
 	{
-		//for every 3rd indice, calculate the triangle and it's color
-		if (indiceIter % 3 == 0) {
-
-			#pragma region Calculate the triangles from a mesh
-			int indice1{ int(mesh.indices[indiceIter]) };
-			int indice2{ int(mesh.indices[indiceIter + 1]) };
-			int indice3{};
-			if (indiceIter == mesh.indices.size() - 2) {
-				indice3 = int(mesh.indices[0]);
-			}
-			else {
-				indice3 = int(mesh.indices[indiceIter + 2]);
-			}
-			std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
-			#pragma endregion
-
-			#pragma region Vertex screenCoordinate
-			std::vector<Vertex> verts{ };
-			VertexTransformationFunction(triangleVerts, verts);
-
-			//Triangle edge
-			const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
-			const Vector2 b{ verts[2].position.x - verts[1].position.x, verts[2].position.y - verts[1].position.y };
-			const Vector2 c{ verts[0].position.x - verts[2].position.x, verts[0].position.y - verts[2].position.y };
-
-			//Triangle verts
-			const Vector2 triangleV0{ verts[0].position.x, verts[0].position.y };
-			const Vector2 triangleV1{ verts[1].position.x, verts[1].position.y };
-			const Vector2 triangleV2{ verts[2].position.x, verts[2].position.y };
-			#pragma endregion
-
-			HandleRender(triangleV0, triangleV1, triangleV2, a, b, c, verts, finalColor);
+		#pragma region Calculate the triangles from a mesh
+		int indice1{};
+		int indice2{};
+		int indice3{};
+		if (indiceIter == size / 2) {
+			indice1 = int(mesh.indices[indiceIter + 1]);
+			indice2 = int(mesh.indices[indiceIter + 2]);
+			indice3 = int(mesh.indices[indiceIter + 3]);
 		}
+		else if (indiceIter < size - 2 ){
+			indice1 = int(mesh.indices[indiceIter]);
+			indice2 = int(mesh.indices[indiceIter + 1]);
+			indice3 = int(mesh.indices[indiceIter + 2]);
+		}
+		std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
+		#pragma endregion
+
+		std::vector<Vertex> verts{ };
+		VertexTransformationFunction(triangleVerts, verts);
+
+		HandleRender(verts, finalColor);
+		
 	}
 }
 
+/// <summary>
+/// Transforms the points of the verts to the correct space and location.
+/// </summary>
+/// <param name="vertices_in">Original Vertexes</param>
+/// <param name="vertices_out">Vertexes to output</param>
 void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex>& vertices_out) const
 {
 	const float screenWidth{ static_cast<float>(m_Width) };
@@ -274,12 +290,14 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 	}
 }
 
+/// <summary>
+/// Function that decides which render function to use based on primitive topology of a mesh
+/// </summary>
 void dae::Renderer::RenderMesh()
 {
 	//1 Loop through meshes
-	for (int triangleIter = 0; triangleIter < m_Meshes.size(); triangleIter++)
+	for (const Mesh& mesh : m_Meshes)
 	{
-		Mesh& mesh{ m_Meshes[triangleIter] };
 		switch (mesh.primitiveTopology)
 		{
 		case PrimitiveTopology::TriangeList:
