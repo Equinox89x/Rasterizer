@@ -13,8 +13,9 @@ struct SDL_Surface;
 #pragma region Defines
 //Weeks
 //#define W1
-#define W2
-//#define W2Img
+//#define W2
+#define TEXTURE
+#define W3
 
 //Triangle topologies
 #define Strip
@@ -44,7 +45,7 @@ namespace dae
 		void Render();
 
 		void RenderTriangleList();
-		void HandleRender(std::vector<Vertex>& verts, ColorRGB& finalColor);
+		void HandleRender(std::vector<Vertex_Out>& verts, ColorRGB& finalColor);
 		void RenderMesh();
 
 		void RenderMeshTriangleStrip(const Mesh& mesh);
@@ -61,9 +62,11 @@ namespace dae
 		SDL_Surface* m_pBackBuffer{ nullptr };
 		uint32_t* m_pBackBufferPixels{};
 
-		float* m_pDepthBufferPixels{};
+		float* m_pDepthBuffer{};
 		ColorRGB* m_pColorBuffer{};
+		#ifdef TEXTURE
 		Texture* m_pTexture{ nullptr };
+		#endif
 
 		Camera m_Camera{};
 
@@ -82,7 +85,7 @@ namespace dae
 			{ {1.f, 0.f, 0.f}, colors::White },
 			{ {-1.f, 0.f, 0.f}, colors::White}
 		};
-		std::vector<std::vector<Vertex>> m_Triangles{ m_TriangleNDC, m_TriangleDepth };
+		const std::vector<std::vector<Vertex>> m_Triangles{ m_TriangleNDC, m_TriangleDepth };
 		#pragma endregion
 		
 		#pragma region W2
@@ -138,45 +141,23 @@ namespace dae
 		//	{ {0, 0, -2}, colors::Green }, //v4
 		//	{ {3, 0, -2}, colors::Blue} //v5
 		//};
-		//std::vector<std::vector<Vertex>> m_Triangles{ m_Triangle1, m_Triangle2, m_Triangle3, m_Triangle4, m_Triangle5, m_Triangle6, m_Triangle7, m_Triangle8 };
+		//const std::vector<std::vector<Vertex>> m_Triangles{ m_Triangle1, m_Triangle2, m_Triangle3, m_Triangle4, m_Triangle5, m_Triangle6, m_Triangle7, m_Triangle8 };
 		#pragma endregion
 
 		#pragma region Using meshes
 		#ifdef Strip
-		//std::vector<Mesh> m_Meshes{
-		//	Mesh{
-		//		{
-		//			Vertex{{-3,3,-2}},
-		//			Vertex{{0,3,-2}},
-		//			Vertex{{3,3,-2}},
-		//			Vertex{{ -3,0,-2}},
-		//			Vertex{{0,0,-2}},
-		//			Vertex{{3,0,-2}},
-		//			Vertex{{-3,-3,-2}},
-		//			Vertex{{0,-3,-2}},
-		//			Vertex{{3,-3,-2}}
-		//		},
-		//		{
-		//			3,0,4,1,5,2,
-		//			2,6,
-		//			6,3,7,4,8,5
-		//		},
-		//		PrimitiveTopology::TriangleStrip
-		//	}
-		//};
-		
-		std::vector<Mesh> m_Meshes{
+		const std::vector<Mesh> m_Meshes{
 			Mesh{
 				{
-					Vertex{{-3,3,-2}, {0,0}},
-					Vertex{{0,3,-2}, {.5,0}},
-					Vertex{{3,3,-2}, {1,0}},
-					Vertex{{ -3,0,-2}, {0,0.5}},
-					Vertex{{0,0,-2}, {.5,.5}},
-					Vertex{{3,0,-2}, {1,.5}},
-					Vertex{{-3,-3,-2}, {0,1}},
-					Vertex{{0,-3,-2}, {.5,1}},
-					Vertex{{3,-3,-2}, {1,1}}
+					Vertex{{-3,3,-2},{}, {0.f,0.f}},
+					Vertex{{0,3,-2},{}, {.5f,0.f}},
+					Vertex{{3,3,-2},{}, {1.f,0.f}},
+					Vertex{{ -3,0,-2},{}, {0.f,0.5f}},
+					Vertex{{0,0,-2},{}, {.5f,.5f}},
+					Vertex{{3,0,-2},{}, {1.f,.5f}},
+					Vertex{{-3,-3,-2},{}, {0.f,1.f}},
+					Vertex{{0,-3,-2},{}, {.5,1.f}},
+					Vertex{{3,-3,-2},{}, {1.f,1.f}}
 				},
 				{
 					3,0,4,1,5,2,
@@ -188,7 +169,7 @@ namespace dae
 		};
 		#endif // Strip
 		#ifdef List
-		std::vector<Mesh> m_Meshes{
+		const std::vector<Mesh> m_Meshes{
 		Mesh{
 			{
 				Vertex{{-3,3,-2}},
@@ -214,6 +195,6 @@ namespace dae
 		#pragma endregion
 
 		//Function that transforms the vertices from the mesh from World space to Screen space
-		void VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex>& vertices_out) const; //W1 Version
+		void VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex_Out>& vertices_out) const; //W1 Version
 	};
 }

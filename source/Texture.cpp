@@ -1,6 +1,7 @@
 #include "Texture.h"
 #include "Vector2.h"
 #include <SDL_image.h>
+#include <iostream>
 
 namespace dae
 {
@@ -31,12 +32,15 @@ namespace dae
 	ColorRGB Texture::Sample(const Vector2& uv) const
 	{
 		SDL_Color rgb{};
-		int bpp = m_pSurface->format->BytesPerPixel;
 
-		//Sample the correct texel for the given uv
-		Uint32* p = (Uint32*)m_pSurface->pixels + int(uv.y) * m_pSurface->pitch + int(uv.x) * bpp;
-		SDL_GetRGB(*(Uint32*)p, m_pSurface->format, &rgb.r, &rgb.g, &rgb.b);
+		//convert from 0,1 to 0,width;
+		const int x{ static_cast<int>(uv.x * m_pSurface->w) };
+		const int y{ static_cast<int>(uv.y * m_pSurface->h) };
 
+		//Sample the correct data for the given uv
+		const Uint32 p = m_pSurfacePixels[x + y * m_pSurface->w];
+		SDL_GetRGB(p, m_pSurface->format, &rgb.r, &rgb.g, &rgb.b);
+		
 		//change color from range 0,255 to 0,1
 		ColorRGB rgb2{ rgb.r, rgb.g, rgb.b};
 		return rgb2/255;

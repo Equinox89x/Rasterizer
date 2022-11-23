@@ -150,9 +150,17 @@ namespace dae {
 
 	Matrix Matrix::CreatePerspectiveFovLH(float fov, float aspect, float zn, float zf)
 	{
-		//TODO W2
+		float differenceA{ zf - zn };
+		float differenceB{ -(zf * zn) };
+		float A{ zf / differenceA };
+		float B{ differenceB / differenceA };
 
-		return {};
+		float calc1{ differenceB / differenceA };
+		Vector4 x{ 1 / (aspect * fov),0,0,0 };
+		Vector4 y{ 0,1 / fov,0,0 };
+		Vector4 z{ 0,0,zf / differenceA ,1 };
+		Vector4 w{ 0,0,calc1 ,0 };
+		return Matrix{ x, y, z, w };
 	}
 
 	Vector3 Matrix::GetAxisX() const

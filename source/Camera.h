@@ -31,8 +31,15 @@ namespace dae
 		const float movementSpeed{ 5.f };
 
 		Matrix invViewMatrix{};
+		//Matrix onbMatrix{};
 		Matrix viewMatrix{};
+		Matrix projectionMatrix{};
 
+		const float nearZ{ 0.1f };
+		const float farZ{ 100.f };
+
+		float aspectRatio;
+		
 		void Initialize(float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f})
 		{
 			fovAngle = _fovAngle;
@@ -54,6 +61,7 @@ namespace dae
 
 			//Inverse(ONB) => ViewMatrix
 			Matrix onb{ right4, up4, forward4, position };
+			//onbMatrix = onb.Inverse();
 			viewMatrix = onb.Inverse();
 
 			//ViewMatrix => Matrix::CreateLookAtLH(...)
@@ -64,9 +72,9 @@ namespace dae
 
 		void CalculateProjectionMatrix()
 		{
-			//TODO W2
+			//ProjectionMatrix => Matrix::CreatePerspectiveFovLH(...)
+			projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspectRatio, nearZ, farZ);
 
-			//ProjectionMatrix => Matrix::CreatePerspectiveFovLH(...) [not implemented yet]
 			//DirectX Implementation => https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixperspectivefovlh
 		}
 
