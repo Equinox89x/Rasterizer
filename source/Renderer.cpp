@@ -25,11 +25,9 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	int size{ m_Width * m_Height };
 	m_pColorBuffer = new ColorRGB[size];
 	m_pDepthBuffer = new float[size];
+
 	//Initialize Camera
 	m_Camera.Initialize(60.f, { .0f,.0f,-10.f });
-	const float screenWidth{ static_cast<float>(m_Width) };
-	const float screenHeight{ static_cast<float>(m_Height) };
-	m_Camera.aspectRatio = screenWidth / screenHeight;
 
 	#ifdef TEXTURE
 	m_pTexture = Texture::LoadFromFile("Resources/uv_grid_2.png");
@@ -59,15 +57,19 @@ void Renderer::Render()
 	SDL_LockSurface(m_pBackBuffer);
 
 	const int size{ m_Width * m_Height };
-	for (int i{0}; i < size; i++)
+	for (int i{ 0 }; i < size; i++)
 	{
 		m_pColorBuffer[i] = colors::Gray;
 	}
 
-	for (int i{0}; i < size; i++)
+	for (int i{ 0 }; i < size; i++)
 	{
 		m_pDepthBuffer[i] = FLT_MAX;
 	}
+
+	const float screenWidth{ static_cast<float>(m_Width) };
+	const float screenHeight{ static_cast<float>(m_Height) };
+	m_Camera.aspectRatio = screenWidth / screenHeight;
 
 	//RENDER LOGIC
 	#ifndef TEXTURE
@@ -85,12 +87,11 @@ void Renderer::Render()
 }
 
 /// <summary>
-/// Rendering the triangles
+/// Rendering the triangles without bounding box
 /// </summary>
 /// <param name="verts">The vertexes to loop through</param>
 /// <param name="finalColor">The color to output</param>
-void dae::Renderer::HandleRender(std::vector<Vertex_Out>& verts, ColorRGB& finalColor)
-{
+void dae::Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor) {
 	//Triangle edge
 	const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
 	const Vector2 b{ verts[2].position.x - verts[1].position.x, verts[2].position.y - verts[1].position.y };
@@ -101,13 +102,12 @@ void dae::Renderer::HandleRender(std::vector<Vertex_Out>& verts, ColorRGB& final
 	const Vector2 triangleV1{ verts[1].position.x, verts[1].position.y };
 	const Vector2 triangleV2{ verts[2].position.x, verts[2].position.y };
 
-	//Loop through pixels
 	for (int px{}; px < m_Width; ++px)
 	{
 		for (int py{}; py < m_Height; ++py)
 		{
 			const int currentPixel{ px + (py * m_Width) };
-			const Vector2 pixel{ static_cast<float>(px)+0.5f, static_cast<float>(py)+0.5f };
+			const Vector2 pixel{ static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f };
 
 			//Pixel position to vertices (also the weight)
 			Vector2 pointToSide{ pixel - triangleV1 };
@@ -128,7 +128,7 @@ void dae::Renderer::HandleRender(std::vector<Vertex_Out>& verts, ColorRGB& final
 			if (w0 > 0.f && w1 > 0.f && w2 > 0.f) {
 
 				//depth test
-				float interpolatedDepth{ 1/((1 / verts[0].position.z) * w0 + (1 / verts[1].position.z) * w1 + (1 / verts[2].position.z) * w2) };
+				float interpolatedDepth{ 1 / ((1 / verts[0].position.z) * w0 + (1 / verts[1].position.z) * w1 + (1 / verts[2].position.z) * w2) };
 				if (interpolatedDepth > m_pDepthBuffer[currentPixel]) {
 					continue;
 				}
@@ -145,9 +145,7 @@ void dae::Renderer::HandleRender(std::vector<Vertex_Out>& verts, ColorRGB& final
 					((verts[1].uv / verts[1].position.z) * w1) +
 					((verts[2].uv / verts[2].position.z) * w2)) * interpolatedDepth };
 
-				//ColorRGB textureColor{ m_pTexture->Sample(interpolatedUV) };
 				ColorRGB interpolatedColor{ m_pTexture->Sample(interpolatedUV) };
-				//ColorRGB interpolatedColor{ (textureColor * w0) + (textureColor * w1) + (textureColor * w2) };
 				#endif
 
 				m_pColorBuffer[currentPixel] = interpolatedColor;
@@ -168,6 +166,97 @@ void dae::Renderer::HandleRender(std::vector<Vertex_Out>& verts, ColorRGB& final
 }
 
 /// <summary>
+/// Rendering the triangles with bounding box
+/// </summary>
+/// <param name="verts">The vertexes to loop through</param>
+/// <param name="finalColor">The color to output</param>
+void dae::Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor)
+{
+	//Triangle edge
+	const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
+	const Vector2 b{ verts[2].position.x - verts[1].position.x, verts[2].position.y - verts[1].position.y };
+	const Vector2 c{ verts[0].position.x - verts[2].position.x, verts[0].position.y - verts[2].position.y };
+
+	//Triangle verts
+	const Vector2 triangleV0{ verts[0].position.x, verts[0].position.y };
+	const Vector2 triangleV1{ verts[1].position.x, verts[1].position.y };
+	const Vector2 triangleV2{ verts[2].position.x, verts[2].position.y };
+
+	//find the top left and bottom right point of the bounding box
+	float maxX = std::max(std::max(triangleV2.x, triangleV0.x), std::max(triangleV0.x, triangleV1.x));
+	float minX = std::min(std::min(triangleV0.x, triangleV1.x), std::min(triangleV2.x, triangleV0.x));
+	float maxY = std::max(std::max(triangleV0.y, triangleV1.y), std::max(triangleV2.y, triangleV0.y));
+	float minY = std::min(std::min(triangleV0.y, triangleV1.y), std::min(triangleV2.y, triangleV0.y));
+
+	//Loop through bounding box pixels
+	for (int px{ int(minX) }; px < int(maxX); ++px)
+	{
+		for (int py{ int(minY) }; py < int(maxY); ++py)
+		{
+			const int currentPixel{ px + (py * m_Width) };
+			if ((0 >= maxX <= (m_Width - 1)) &&
+				(0 >= maxY <= (m_Width - 1)) &&
+				(0 >= minX <= (m_Height - 1)) &&
+				(0 >= minY <= (m_Height - 1))) {
+				const Vector2 pixel{ static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f };
+
+				//Pixel position to vertices (also the weight)
+				Vector2 pointToSide{ pixel - triangleV1 };
+				const float edgeA{ Vector2::Cross(b, pointToSide) };
+
+				pointToSide = pixel - triangleV2;
+				const float edgeB{ Vector2::Cross(c, pointToSide) };
+
+				pointToSide = pixel - triangleV0;
+				const float edgeC{ Vector2::Cross(a, pointToSide) };
+
+				const float triangleArea{ edgeA + edgeB + edgeC };
+				const float w0{ edgeA / triangleArea };
+				const float w1{ edgeB / triangleArea };
+				const float w2{ edgeC / triangleArea };
+
+				//check if pixel is inside triangle
+				if (w0 > 0.f && w1 > 0.f && w2 > 0.f) {
+
+					//depth test
+					float interpolatedDepth{ 1 / ((1 / verts[0].position.z) * w0 + (1 / verts[1].position.z) * w1 + (1 / verts[2].position.z) * w2) };
+					if (interpolatedDepth > m_pDepthBuffer[currentPixel]) {
+						continue;
+					}
+					m_pDepthBuffer[currentPixel] = interpolatedDepth;
+
+					//Deciding color
+					#ifndef TEXTURE
+					ColorRGB interpolatedColor{ (verts[0].color * w0) + (verts[1].color * w1) + (verts[2].color * w2) };
+					#endif
+
+					#ifdef TEXTURE
+					Vector2 interpolatedUV{
+						(((verts[0].uv / verts[0].position.z) * w0) +
+						((verts[1].uv / verts[1].position.z) * w1) +
+						((verts[2].uv / verts[2].position.z) * w2)) * interpolatedDepth };
+
+					ColorRGB interpolatedColor{ m_pTexture->Sample(interpolatedUV) };
+					#endif
+
+					m_pColorBuffer[currentPixel] = interpolatedColor;
+				}
+			}
+
+			//change color accordingly to triangle
+			finalColor = m_pColorBuffer[currentPixel];
+
+			//Update Color in Buffer
+			finalColor.MaxToOne();
+			m_pBackBufferPixels[currentPixel] = SDL_MapRGB(m_pBackBuffer->format,
+				static_cast<uint8_t>(finalColor.r * 255),
+				static_cast<uint8_t>(finalColor.g * 255),
+				static_cast<uint8_t>(finalColor.b * 255));
+		}
+	}
+}
+
+/// <summary>
 /// Render the list of triangles (list of a list of Vertexes)
 /// </summary>
 void dae::Renderer::RenderTriangleList()
@@ -179,7 +268,12 @@ void dae::Renderer::RenderTriangleList()
 		std::vector<Vertex_Out> verts{};
 		VertexTransformationFunction(m_Triangles[triangleIter], verts);
 
-		HandleRender(verts, finalColor);
+		#ifndef BOUNDINGBOX
+		HandleRenderNoBB(verts, finalColor);
+		#endif // BOUNDINGBOX
+		#ifdef BOUNDINGBOX
+		HandleRenderBB(verts, finalColor);
+		#endif // BOUNDINGBOX
 	}
 }
 
@@ -204,7 +298,12 @@ void dae::Renderer::RenderMeshTriangleList(const Mesh& mesh)
 		std::vector<Vertex_Out> verts{ };
 		VertexTransformationFunction(triangleVerts, verts);
 
-		HandleRender(verts, finalColor);
+		#ifndef BOUNDINGBOX
+		HandleRenderNoBB(verts, finalColor);
+		#endif // BOUNDINGBOX
+		#ifdef BOUNDINGBOX
+		HandleRenderBB(verts, finalColor);
+		#endif // BOUNDINGBOX
 	}
 }
 
@@ -228,7 +327,7 @@ void dae::Renderer::RenderMeshTriangleStrip(const Mesh& mesh)
 			indice2 = int(mesh.indices[indiceIter + 2]);
 			indice3 = int(mesh.indices[indiceIter + 3]);
 		}
-		else if (indiceIter < size - 2 ){
+		else if (indiceIter < size - 2) {
 			indice1 = int(mesh.indices[indiceIter]);
 			indice2 = int(mesh.indices[indiceIter + 1]);
 			indice3 = int(mesh.indices[indiceIter + 2]);
@@ -239,7 +338,12 @@ void dae::Renderer::RenderMeshTriangleStrip(const Mesh& mesh)
 		std::vector<Vertex_Out> verts{ };
 		VertexTransformationFunction(triangleVerts, verts);
 
-		HandleRender(verts, finalColor);
+		#ifndef BOUNDINGBOX
+		HandleRenderNoBB(verts, finalColor);
+		#endif // BOUNDINGBOX
+		#ifdef BOUNDINGBOX
+		HandleRenderBB(verts, finalColor);
+		#endif // BOUNDINGBOX
 	}
 }
 
@@ -250,18 +354,15 @@ void dae::Renderer::RenderMeshTriangleStrip(const Mesh& mesh)
 /// <param name="vertices_out">Vertexes to output</param>
 void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex_Out>& vertices_out) const
 {
-	
-
 	vertices_out.resize(vertices_in.size());
 
-	Matrix viewMatrix{ m_Camera.invViewMatrix};
+	Matrix viewMatrix{ m_Camera.invViewMatrix };
 	for (int i{}; i < vertices_in.size(); i++)
 	{
 
-		
 		#ifndef W3
 		//Transform points to camera space
-		Vector3 transformedVert{ viewMatrix.TransformPoint(vertices_in[i].position)};
+		Vector3 transformedVert{ viewMatrix.TransformPoint(vertices_in[i].position) };
 		//Project point to 2d view plane (perspective divide)
 		float projectedVertexX{ transformedVert.x / transformedVert.z };
 		float projectedVertexY{ transformedVert.y / transformedVert.z };
@@ -294,8 +395,8 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 
 		if (!(projectedVertexX < -1 && projectedVertexX > 1) && !(projectedVertexY < -1 && projectedVertexY > 1)) {
 			//if (projectedVertexZ > 0 && projectedVertexZ < 1) {
-				Vertex_Out vert{ Vector4{projectedVertexX, projectedVertexY , projectedVertexZ, transformedVert.z}, vertices_in[i].color,  vertices_in[i].uv};
-				vertices_out[i] = vert;
+			Vertex_Out vert{ Vector4{projectedVertexX, projectedVertexY , projectedVertexZ, projectedVertexW}, vertices_in[i].color,  vertices_in[i].uv };
+			vertices_out[i] = vert;
 			//}
 		}
 		#endif

@@ -14,8 +14,11 @@ struct SDL_Surface;
 //Weeks
 //#define W1
 //#define W2
+//#define W3
+
+//Features
 #define TEXTURE
-#define W3
+#define BOUNDINGBOX
 
 //Triangle topologies
 #define Strip
@@ -45,7 +48,8 @@ namespace dae
 		void Render();
 
 		void RenderTriangleList();
-		void HandleRender(std::vector<Vertex_Out>& verts, ColorRGB& finalColor);
+		void HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor);
+		void HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor);
 		void RenderMesh();
 
 		void RenderMeshTriangleStrip(const Mesh& mesh);

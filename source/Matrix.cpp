@@ -8,8 +8,7 @@
 namespace dae {
 	Matrix::Matrix(const Vector3& xAxis, const Vector3& yAxis, const Vector3& zAxis, const Vector3& t) :
 		Matrix({ xAxis, 0 }, { yAxis, 0 }, { zAxis, 0 }, { t, 1 })
-	{
-	}
+	{}
 
 	Matrix::Matrix(const Vector4& xAxis, const Vector4& yAxis, const Vector4& zAxis, const Vector4& t)
 	{
@@ -156,10 +155,10 @@ namespace dae {
 		float B{ differenceB / differenceA };
 
 		float calc1{ differenceB / differenceA };
-		Vector4 x{ 1 / (aspect * fov),0,0,0 };
-		Vector4 y{ 0,1 / fov,0,0 };
-		Vector4 z{ 0,0,zf / differenceA ,1 };
-		Vector4 w{ 0,0,calc1 ,0 };
+		Vector4 x{ 1 / (aspect * fov), 0, 0, 0 };
+		Vector4 y{ 0, 1 / fov, 0, 0 };
+		Vector4 z{ 0, 0, zf / differenceA, 1 };
+		Vector4 w{ 0, 0, calc1, 0 };
 		return Matrix{ x, y, z, w };
 	}
 

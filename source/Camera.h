@@ -31,14 +31,14 @@ namespace dae
 		const float movementSpeed{ 5.f };
 
 		Matrix invViewMatrix{};
-		//Matrix onbMatrix{};
 		Matrix viewMatrix{};
 		Matrix projectionMatrix{};
 
 		const float nearZ{ 0.1f };
 		const float farZ{ 100.f };
 
-		float aspectRatio;
+		float aspectRatio{ 0.f };
+		float aspectRatioOld{ 0.f };
 		
 		void Initialize(float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f})
 		{
@@ -61,7 +61,7 @@ namespace dae
 
 			//Inverse(ONB) => ViewMatrix
 			Matrix onb{ right4, up4, forward4, position };
-			//onbMatrix = onb.Inverse();
+			//onbMatrix = onb;
 			viewMatrix = onb.Inverse();
 
 			//ViewMatrix => Matrix::CreateLookAtLH(...)
@@ -125,7 +125,10 @@ namespace dae
 
 			//Update Matrices
 			CalculateViewMatrix();
-			CalculateProjectionMatrix(); //Try to optimize this - should only be called once or when fov/aspectRatio changes
+			//if (aspectRatio != aspectRatioOld) {
+				CalculateProjectionMatrix(); //Try to optimize this - should only be called once or when fov/aspectRatio changes
+				/*aspectRatioOld = aspectRatio;
+			}*/
 		}
 	};
 }
