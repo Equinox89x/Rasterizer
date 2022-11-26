@@ -14,11 +14,11 @@ struct SDL_Surface;
 //Weeks
 //#define W1
 //#define W2
-//#define W3
+#define W3
 
 //Features
-#define TEXTURE
 #define BOUNDINGBOX
+#define TEXTURE
 
 //Triangle topologies
 #define Strip

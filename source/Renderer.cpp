@@ -128,7 +128,7 @@ void dae::Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& f
 			if (w0 > 0.f && w1 > 0.f && w2 > 0.f) {
 
 				//depth test
-				float interpolatedDepth{ 1 / ((1 / verts[0].position.z) * w0 + (1 / verts[1].position.z) * w1 + (1 / verts[2].position.z) * w2) };
+				const float interpolatedDepth{ 1 / ((1 / verts[0].position.z) * w0 + (1 / verts[1].position.z) * w1 + (1 / verts[2].position.z) * w2) };
 				if (interpolatedDepth > m_pDepthBuffer[currentPixel]) {
 					continue;
 				}
@@ -140,10 +140,19 @@ void dae::Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& f
 				#endif
 
 				#ifdef TEXTURE
+				#ifndef W3
 				Vector2 interpolatedUV{
 					(((verts[0].uv / verts[0].position.z) * w0) +
 					((verts[1].uv / verts[1].position.z) * w1) +
 					((verts[2].uv / verts[2].position.z) * w2)) * interpolatedDepth };
+				#endif					
+				#ifdef W3
+				const float interpolatedDepthW{ 1 / ((1 / verts[0].position.w) * w0 + (1 / verts[1].position.w) * w1 + (1 / verts[2].position.w) * w2) };
+				const Vector2 interpolatedUV{
+					(((verts[0].uv / verts[0].position.w) * w0) +
+					((verts[1].uv / verts[1].position.w) * w1) +
+					((verts[2].uv / verts[2].position.w) * w2)) * interpolatedDepthW };
+				#endif
 
 				ColorRGB interpolatedColor{ m_pTexture->Sample(interpolatedUV) };
 				#endif
@@ -219,7 +228,7 @@ void dae::Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& fin
 				if (w0 > 0.f && w1 > 0.f && w2 > 0.f) {
 
 					//depth test
-					float interpolatedDepth{ 1 / ((1 / verts[0].position.z) * w0 + (1 / verts[1].position.z) * w1 + (1 / verts[2].position.z) * w2) };
+					const float interpolatedDepth{ 1 / ((1 / verts[0].position.z) * w0 + (1 / verts[1].position.z) * w1 + (1 / verts[2].position.z) * w2) };
 					if (interpolatedDepth > m_pDepthBuffer[currentPixel]) {
 						continue;
 					}
@@ -231,12 +240,21 @@ void dae::Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& fin
 					#endif
 
 					#ifdef TEXTURE
+					#ifndef W3
 					Vector2 interpolatedUV{
 						(((verts[0].uv / verts[0].position.z) * w0) +
 						((verts[1].uv / verts[1].position.z) * w1) +
 						((verts[2].uv / verts[2].position.z) * w2)) * interpolatedDepth };
+					#endif					
+					#ifdef W3
+					const float interpolatedDepthW{ 1 / ((1 / verts[0].position.w) * w0 + (1 / verts[1].position.w) * w1 + (1 / verts[2].position.w) * w2) };
+					const Vector2 interpolatedUV{
+						(((verts[0].uv / verts[0].position.w) * w0) +
+						((verts[1].uv / verts[1].position.w) * w1) +
+						((verts[2].uv / verts[2].position.w) * w2)) * interpolatedDepthW };
+					#endif
 
-					ColorRGB interpolatedColor{ m_pTexture->Sample(interpolatedUV) };
+					const ColorRGB interpolatedColor{ m_pTexture->Sample(interpolatedUV) };
 					#endif
 
 					m_pColorBuffer[currentPixel] = interpolatedColor;
@@ -356,7 +374,9 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 {
 	vertices_out.resize(vertices_in.size());
 
-	Matrix viewMatrix{ m_Camera.invViewMatrix };
+	//Add viewmatrix with camera space matrix
+	Matrix worldViewProjectionMatrix{ m_Camera.viewMatrix * m_Camera.projectionMatrix };
+
 	for (int i{}; i < vertices_in.size(); i++)
 	{
 
@@ -382,16 +402,17 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 
 		#ifdef W3
 		Vector4 point{ vertices_in[i].position, 1 };
-		//Add viewmatrix with camera space matrix
-		Matrix worldViewProjectionMatrix{ viewMatrix * m_Camera.projectionMatrix };
+		
 		//Transform points to correct space
 		Vector4 transformedVert{ worldViewProjectionMatrix.TransformPoint(point) };
 
 		//Project point to 2d view plane (perspective divide)
-		float projectedVertexX{ transformedVert.x / transformedVert.z };
-		float projectedVertexY{ transformedVert.y / transformedVert.z };
+		float projectedVertexX{ transformedVert.x / transformedVert.w };
+		float projectedVertexY{ transformedVert.y / transformedVert.w };
 		float projectedVertexZ{ transformedVert.z / transformedVert.w };
-		float projectedVertexW{ transformedVert.z };
+		float projectedVertexW{ transformedVert.w };
+		projectedVertexX = ((projectedVertexX + 1) / 2) * m_Width;
+		projectedVertexY = ((1 - projectedVertexY) / 2) * m_Height;
 
 		if (!(projectedVertexX < -1 && projectedVertexX > 1) && !(projectedVertexY < -1 && projectedVertexY > 1)) {
 			//if (projectedVertexZ > 0 && projectedVertexZ < 1) {
