@@ -4,6 +4,9 @@
 
 //Project includes
 #include "Renderer.h"
+
+#include <iostream>
+
 #include "Math.h"
 #include "Matrix.h"
 #include "Texture.h"
@@ -32,6 +35,15 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	#ifdef TEXTURE
 	m_pTexture = Texture::LoadFromFile("Resources/uv_grid_2.png");
 	#endif
+
+	#ifdef MESH
+	m_Meshes[0] = Mesh{};
+	/*Utils::ParseOBJ("Resources/lowpoly_bunny2.obj",
+		m_Meshes[0].vertices,
+		m_Meshes[0].indices
+	);*/
+	#endif
+
 }
 
 Renderer::~Renderer()
@@ -56,16 +68,21 @@ void Renderer::Render()
 	//Lock BackBuffer
 	SDL_LockSurface(m_pBackBuffer);
 
-	const int size{ m_Width * m_Height };
-	for (int i{ 0 }; i < size; i++)
-	{
-		m_pColorBuffer[i] = colors::Gray;
-	}
 
+	const int size{ m_Width * m_Height };
 	for (int i{ 0 }; i < size; i++)
 	{
 		m_pDepthBuffer[i] = FLT_MAX;
 	}
+	#ifdef W3_AND_UP
+	SDL_FillRect(m_pBackBuffer, NULL, 0x000000);
+	#endif	
+	#ifndef W3_AND_UP
+	for (int i{ 0 }; i < size; i++)
+	{
+		m_pColorBuffer[i] = colors::Gray;
+	}
+	#endif
 
 	const float screenWidth{ static_cast<float>(m_Width) };
 	const float screenHeight{ static_cast<float>(m_Height) };
@@ -91,7 +108,8 @@ void Renderer::Render()
 /// </summary>
 /// <param name="verts">The vertexes to loop through</param>
 /// <param name="finalColor">The color to output</param>
-void dae::Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor) {
+void Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor) const
+{
 	//Triangle edge
 	const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
 	const Vector2 b{ verts[2].position.x - verts[1].position.x, verts[2].position.y - verts[1].position.y };
@@ -140,13 +158,13 @@ void dae::Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& f
 				#endif
 
 				#ifdef TEXTURE
-				#ifndef W3
+				#ifndef W3_AND_UP
 				Vector2 interpolatedUV{
 					(((verts[0].uv / verts[0].position.z) * w0) +
 					((verts[1].uv / verts[1].position.z) * w1) +
 					((verts[2].uv / verts[2].position.z) * w2)) * interpolatedDepth };
 				#endif					
-				#ifdef W3
+				#ifdef W3_AND_UP
 				const float interpolatedDepthW{ 1 / ((1 / verts[0].position.w) * w0 + (1 / verts[1].position.w) * w1 + (1 / verts[2].position.w) * w2) };
 				const Vector2 interpolatedUV{
 					(((verts[0].uv / verts[0].position.w) * w0) +
@@ -179,7 +197,7 @@ void dae::Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& f
 /// </summary>
 /// <param name="verts">The vertexes to loop through</param>
 /// <param name="finalColor">The color to output</param>
-void dae::Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor)
+void Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor) const
 {
 	//Triangle edge
 	const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
@@ -240,13 +258,13 @@ void dae::Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& fin
 					#endif
 
 					#ifdef TEXTURE
-					#ifndef W3
+					#ifndef W3_AND_UP
 					Vector2 interpolatedUV{
 						(((verts[0].uv / verts[0].position.z) * w0) +
 						((verts[1].uv / verts[1].position.z) * w1) +
 						((verts[2].uv / verts[2].position.z) * w2)) * interpolatedDepth };
 					#endif					
-					#ifdef W3
+					#ifdef W3_AND_UP
 					const float interpolatedDepthW{ 1 / ((1 / verts[0].position.w) * w0 + (1 / verts[1].position.w) * w1 + (1 / verts[2].position.w) * w2) };
 					const Vector2 interpolatedUV{
 						(((verts[0].uv / verts[0].position.w) * w0) +
@@ -277,7 +295,7 @@ void dae::Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& fin
 /// <summary>
 /// Render the list of triangles (list of a list of Vertexes)
 /// </summary>
-void dae::Renderer::RenderTriangleList()
+void Renderer::RenderTriangleList() const
 {
 	ColorRGB finalColor{};
 	//1 Loop through triangles
@@ -299,7 +317,7 @@ void dae::Renderer::RenderTriangleList()
 /// Render the Mesh with List topology
 /// </summary>
 /// <param name="mesh">The mesh as const ref</param>
-void dae::Renderer::RenderMeshTriangleList(const Mesh& mesh)
+void Renderer::RenderMeshTriangleList(const Mesh& mesh) const
 {
 	ColorRGB finalColor{};
 	//loop through indices (triangle ID's)
@@ -329,7 +347,7 @@ void dae::Renderer::RenderMeshTriangleList(const Mesh& mesh)
 /// Render the Mesh with Strip topology
 /// </summary>
 /// <param name="mesh">The mesh as const ref</param>
-void dae::Renderer::RenderMeshTriangleStrip(const Mesh& mesh)
+void Renderer::RenderMeshTriangleStrip(const Mesh& mesh) const
 {
 	ColorRGB finalColor{};
 	//loop through indices (triangle ID's)
@@ -380,9 +398,9 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 	for (int i{}; i < vertices_in.size(); i++)
 	{
 
-		#ifndef W3
+		#ifndef W3_AND_UP
 		//Transform points to camera space
-		Vector3 transformedVert{ viewMatrix.TransformPoint(vertices_in[i].position) };
+		Vector3 transformedVert{ m_Camera.viewMatrix.TransformPoint(vertices_in[i].position) };
 		//Project point to 2d view plane (perspective divide)
 		float projectedVertexX{ transformedVert.x / transformedVert.z };
 		float projectedVertexY{ transformedVert.y / transformedVert.z };
@@ -400,7 +418,7 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 		vertices_out[i] = Vertex_Out{ Vector4{vert.position, projectedVertexZ}, vert.color, vert.uv };
 		#endif
 
-		#ifdef W3
+		#ifdef W3_AND_UP
 		Vector4 point{ vertices_in[i].position, 1 };
 		
 		//Transform points to correct space
@@ -427,7 +445,7 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 /// <summary>
 /// Function that decides which render function to use based on primitive topology of a mesh
 /// </summary>
-void dae::Renderer::RenderMesh()
+void Renderer::RenderMesh() const
 {
 	//1 Loop through meshes
 	for (const Mesh& mesh : m_Meshes)
