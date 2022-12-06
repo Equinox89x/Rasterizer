@@ -7,6 +7,7 @@
 
 #include <iostream>
 
+#include "Material.h"
 #include "Math.h"
 #include "Matrix.h"
 #include "Texture.h"
@@ -30,20 +31,39 @@ Renderer::Renderer(SDL_Window* pWindow) :
 	m_pDepthBuffer = new float[size];
 
 	//Initialize Camera
-	m_Camera.Initialize(60.f, { .0f,.0f,-10.f });
+	m_Camera.Initialize(45.f, { 0.f,0.f,0.f });
+	const float screenWidth{ static_cast<float>(m_Width) };
+	const float screenHeight{ static_cast<float>(m_Height) };
+	m_Camera.aspectRatio = screenWidth / screenHeight;
 
 	#ifdef TEXTURE
+	#ifndef MESH
 	m_pTexture = Texture::LoadFromFile("Resources/uv_grid_2.png");
+	#endif
+	#ifdef MESH
+	//m_pTexture = Texture::LoadFromFile("Resources/tuktuk.png");
+	m_pTexture = Texture::LoadFromFile("Resources/vehicle_diffuse.png");
+	m_pNormals = Texture::LoadFromFile("Resources/vehicle_normal.png");
+	m_pGloss = Texture::LoadFromFile("Resources/vehicle_gloss.png");
+	m_pSpecular = Texture::LoadFromFile("Resources/vehicle_specular.png");
+	#endif
 	#endif
 
 	#ifdef MESH
-	m_Meshes[0] = Mesh{};
-	/*Utils::ParseOBJ("Resources/lowpoly_bunny2.obj",
+	//Utils::ParseOBJ("Resources/tuktuk.obj",
+	//	m_Meshes[0].vertices,
+	//	m_Meshes[0].indices
+	//);
+
+	Utils::ParseOBJ("Resources/vehicle.obj",
 		m_Meshes[0].vertices,
 		m_Meshes[0].indices
-	);*/
-	#endif
+	);
 
+	Matrix trans{ Matrix::CreateTranslation(0,0,50) };
+	Matrix rot{ Matrix::CreateRotationY(14)};
+	m_Meshes[0].worldMatrix = rot * trans;
+	#endif
 }
 
 Renderer::~Renderer()
@@ -60,6 +80,20 @@ Renderer::~Renderer()
 void Renderer::Update(Timer* pTimer)
 {
 	m_Camera.Update(pTimer);
+	//float yawAngle{ (cos(pTimer->GetTotal()) + 1.f) / 2.f * PI_2 };
+	//for (Mesh& mesh : m_Meshes)
+	//{
+	//	mesh.rotationTransform = Matrix::CreateRotationY(yawAngle);
+
+	//	mesh.totalTranslation += mesh.worldMatrix.GetTranslation();
+
+	//	Matrix totalTrans = Matrix::CreateTranslation(mesh.totalTranslation);
+	//	Matrix totalTransNegative = Matrix::CreateTranslation(-mesh.totalTranslation);
+
+	//	//bring the object back to its original position, apply the transform, then bring it back to the new position
+	//	//const Matrix finalTransform{ totalTransNegative * mesh.scaleTransform * mesh.rotationTransform * mesh.translationTransform * totalTrans };
+	//	mesh.worldMatrix = totalTransNegative * mesh.scaleTransform * mesh.rotationTransform * mesh.translationTransform * totalTrans;
+	//}
 }
 
 void Renderer::Render()
@@ -68,33 +102,35 @@ void Renderer::Render()
 	//Lock BackBuffer
 	SDL_LockSurface(m_pBackBuffer);
 
-
 	const int size{ m_Width * m_Height };
 	for (int i{ 0 }; i < size; i++)
 	{
 		m_pDepthBuffer[i] = FLT_MAX;
 	}
-	#ifdef W3_AND_UP
-	SDL_FillRect(m_pBackBuffer, NULL, 0x000000);
-	#endif	
-	#ifndef W3_AND_UP
+
 	for (int i{ 0 }; i < size; i++)
 	{
 		m_pColorBuffer[i] = colors::Gray;
 	}
-	#endif
+	SDL_FillRect(m_pBackBuffer, NULL, 0x808080);
 
-	const float screenWidth{ static_cast<float>(m_Width) };
-	const float screenHeight{ static_cast<float>(m_Height) };
-	m_Camera.aspectRatio = screenWidth / screenHeight;
 
 	//RENDER LOGIC
-	#ifndef TEXTURE
-	RenderTriangleList();
-	#endif // W1
-	#ifdef TEXTURE
-	RenderMesh();
-	#endif // W2Img
+	//Loop through meshes and perform correct render based on topology
+	for (const Mesh& mesh : m_Meshes)
+	{
+		switch (mesh.primitiveTopology)
+		{
+		case PrimitiveTopology::TriangeList:
+			RenderMeshTriangleList(mesh);
+			break;
+		case PrimitiveTopology::TriangleStrip:
+			RenderMeshTriangleStrip(mesh);
+			break;
+		default:
+			break;
+		}
+	}
 
 	//@END
 	//Update SDL Surface
@@ -108,7 +144,7 @@ void Renderer::Render()
 /// </summary>
 /// <param name="verts">The vertexes to loop through</param>
 /// <param name="finalColor">The color to output</param>
-void Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor) const
+void Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor)
 {
 	//Triangle edge
 	const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
@@ -197,7 +233,7 @@ void Renderer::HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalC
 /// </summary>
 /// <param name="verts">The vertexes to loop through</param>
 /// <param name="finalColor">The color to output</param>
-void Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor) const
+void Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor)
 {
 	//Triangle edge
 	const Vector2 a{ verts[1].position.x - verts[0].position.x, verts[1].position.y - verts[0].position.y };
@@ -210,21 +246,21 @@ void Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalCol
 	const Vector2 triangleV2{ verts[2].position.x, verts[2].position.y };
 
 	//find the top left and bottom right point of the bounding box
-	float maxX = std::max(std::max(triangleV2.x, triangleV0.x), std::max(triangleV0.x, triangleV1.x));
-	float minX = std::min(std::min(triangleV0.x, triangleV1.x), std::min(triangleV2.x, triangleV0.x));
-	float maxY = std::max(std::max(triangleV0.y, triangleV1.y), std::max(triangleV2.y, triangleV0.y));
-	float minY = std::min(std::min(triangleV0.y, triangleV1.y), std::min(triangleV2.y, triangleV0.y));
+	const float maxX = std::max(std::max(triangleV2.x, triangleV0.x), std::max(triangleV0.x, triangleV1.x));
+	const float minX = std::min(std::min(triangleV0.x, triangleV1.x), std::min(triangleV2.x, triangleV0.x));
+	const float maxY = std::max(std::max(triangleV0.y, triangleV1.y), std::max(triangleV2.y, triangleV0.y));
+	const float minY = std::min(std::min(triangleV0.y, triangleV1.y), std::min(triangleV2.y, triangleV0.y));
 
-	//Loop through bounding box pixels
-	for (int px{ int(minX) }; px < int(maxX); ++px)
-	{
-		for (int py{ int(minY) }; py < int(maxY); ++py)
+	if (
+		((minX >= 0) && (maxX <= (m_Width - 1))) &&
+		((minY >= 0) && (maxY <= (m_Height - 1)))) {
+		//Loop through bounding box pixels and ceil to remove lines between triangles.
+		for (int px{ static_cast<int>(minX) }; px < std::ceil(maxX); ++px)
 		{
-			const int currentPixel{ px + (py * m_Width) };
-			if ((0 >= maxX <= (m_Width - 1)) &&
-				(0 >= maxY <= (m_Width - 1)) &&
-				(0 >= minX <= (m_Height - 1)) &&
-				(0 >= minY <= (m_Height - 1))) {
+			for (int py{ static_cast<int>(minY) }; py < std::ceil(maxY); ++py)
+			{
+				const int currentPixel{ px + (py * m_Width) };
+				if (!(currentPixel > 0 && currentPixel < m_Width * m_Height)) continue;
 				const Vector2 pixel{ static_cast<float>(px) + 0.5f, static_cast<float>(py) + 0.5f };
 
 				//Pixel position to vertices (also the weight)
@@ -263,21 +299,17 @@ void Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalCol
 						(((verts[0].uv / verts[0].position.z) * w0) +
 						((verts[1].uv / verts[1].position.z) * w1) +
 						((verts[2].uv / verts[2].position.z) * w2)) * interpolatedDepth };
+					m_pColorBuffer[currentPixel] = interpolatedColor;
 					#endif					
 					#ifdef W3_AND_UP
-					const float interpolatedDepthW{ 1 / ((1 / verts[0].position.w) * w0 + (1 / verts[1].position.w) * w1 + (1 / verts[2].position.w) * w2) };
-					const Vector2 interpolatedUV{
-						(((verts[0].uv / verts[0].position.w) * w0) +
-						((verts[1].uv / verts[1].position.w) * w1) +
-						((verts[2].uv / verts[2].position.w) * w2)) * interpolatedDepthW };
-					#endif
+					float shininess{ 0 };
+					float specularKS{ 0 };
+					Vertex_Out pixelVertexPos{ CalculateVertexWithAttributes(verts, w0, w1, w2, shininess, specularKS)};
+					m_pColorBuffer[currentPixel] = PixelShading(pixelVertexPos, shininess, specularKS);
 
-					const ColorRGB interpolatedColor{ m_pTexture->Sample(interpolatedUV) };
 					#endif
-
-					m_pColorBuffer[currentPixel] = interpolatedColor;
+					#endif
 				}
-			}
 
 			//change color accordingly to triangle
 			finalColor = m_pColorBuffer[currentPixel];
@@ -288,28 +320,111 @@ void Renderer::HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalCol
 				static_cast<uint8_t>(finalColor.r * 255),
 				static_cast<uint8_t>(finalColor.g * 255),
 				static_cast<uint8_t>(finalColor.b * 255));
+			}
 		}
 	}
 }
 
-/// <summary>
-/// Render the list of triangles (list of a list of Vertexes)
-/// </summary>
-void Renderer::RenderTriangleList() const
+Vertex_Out Renderer::CalculateVertexWithAttributes(const std::vector<Vertex_Out>& verts, const float w0, const float w1, const float w2, float& outShininess, float& outSpecularKS) const
 {
-	ColorRGB finalColor{};
-	//1 Loop through triangles
-	for (int triangleIter{}; triangleIter < m_Triangles.size(); triangleIter++)
-	{
-		std::vector<Vertex_Out> verts{};
-		VertexTransformationFunction(m_Triangles[triangleIter], verts);
+	#pragma region calculate interpolated attributes
+	const float interpolatedDepthW{ 1 / (
+		(1 / verts[0].position.w) * w0 +
+		(1 / verts[1].position.w) * w1 +
+		(1 / verts[2].position.w) * w2) };
 
-		#ifndef BOUNDINGBOX
-		HandleRenderNoBB(verts, finalColor);
-		#endif // BOUNDINGBOX
-		#ifdef BOUNDINGBOX
-		HandleRenderBB(verts, finalColor);
-		#endif // BOUNDINGBOX
+	const Vector2 interpolatedUV{
+		(((verts[0].uv / verts[0].position.w) * w0) +
+			((verts[1].uv / verts[1].position.w) * w1) +
+			((verts[2].uv / verts[2].position.w) * w2)) * interpolatedDepthW };
+
+	const Vector3 interpolatedNormal{ (
+		(verts[0].normal / (verts[0].position.w)) * w0 +
+		(verts[1].normal / verts[1].position.w) * w1 +
+		(verts[2].normal / verts[2].position.w) * w2) * interpolatedDepthW };
+
+	const Vector3 interpolatedTangent{ (
+		(verts[0].tangent / (verts[0].position.w)) * w0 +
+		(verts[1].tangent / verts[1].position.w) * w1 +
+		(verts[2].tangent / verts[2].position.w) * w2) * interpolatedDepthW };
+
+	const Vector3 viewDirection{ (
+		(verts[0].viewDirection / (verts[0].position.w)) * w0 +
+		(verts[1].viewDirection / verts[1].position.w) * w1 +
+		(verts[2].viewDirection / verts[2].position.w) * w2) * interpolatedDepthW };
+
+	const Vector4 interpolatedPosition{ (
+		verts[0].position * w0 +
+		verts[1].position * w1 +
+		verts[2].position * w2) * interpolatedDepthW };
+	#pragma endregion
+
+	//color from diffuse map
+	const ColorRGB currentColor{ m_pTexture->Sample(interpolatedUV) };
+
+	#pragma region normals
+	const auto [Nr, Ng, Nb]{ m_pNormals->Sample(interpolatedUV) };
+	const Vector3 binormal = Vector3::Cross(interpolatedNormal, interpolatedTangent);
+	const Matrix tangentSpaceAxis{ Matrix{ interpolatedTangent,binormal,interpolatedNormal,Vector3::Zero } };
+
+	Vector3 sampledNormal{ Nr,Ng,Nb };
+	sampledNormal = 2.f * sampledNormal - Vector3{1.f, 1.f, 1.f};
+	sampledNormal = tangentSpaceAxis.TransformVector(sampledNormal).Normalized();
+	sampledNormal /= 255.f;
+	#pragma endregion
+
+	#pragma region Phong
+	//gloss
+	const auto [Gr, Gg, Gb]{ m_pGloss->Sample(interpolatedUV) };
+	outShininess = Gr * 25;
+
+	//specular
+	const auto [Sr, Sg, Sb]{ m_pSpecular->Sample(interpolatedUV) };
+	const Vector3 ksValue{ Sr, Sg, Sb };
+	outSpecularKS = ksValue.Magnitude();
+	#pragma endregion
+
+	return { interpolatedPosition, currentColor, interpolatedUV, m_HasNormalMap ? sampledNormal.Normalized() : interpolatedNormal, interpolatedTangent, viewDirection.Normalized() };
+}
+
+ColorRGB Renderer::PixelShading(const Vertex_Out& v, const float shininess, const float specularKS) const
+{
+	constexpr float kd{ 7.f }; // = diffuse reflectance = diffuse specularity
+	float ObservedArea{ Vector3::Dot(v.normal, -lightDirection) };
+	ObservedArea = Clamp(ObservedArea, 0.f, 1.f);
+
+	switch (m_LightingMode)
+	{
+		case LightingMode::ObservedArea: {
+			return ColorRGB{ ObservedArea,ObservedArea,ObservedArea };
+		}
+
+		case LightingMode::Diffuse:{
+			Material_Lambert material{ Material_Lambert(v.color, kd) };
+			const ColorRGB diffuse{ material.Shade(v) };
+			return diffuse * ObservedArea;
+		}
+
+		case LightingMode::Specular: {
+			Material_LambertPhong material{ Material_LambertPhong(colors::Black, kd, specularKS, shininess) };
+			const ColorRGB diffuse{ material.Shade(v, lightDirection, v.viewDirection) };
+			return diffuse;
+		}
+
+		case LightingMode::Combined: {
+			//Material_Lambert material{ Material_Lambert(v.color, kd) };
+			//const ColorRGB diffuse{ material.Shade(v) };
+			Material_LambertPhong material{ Material_LambertPhong(v.color, kd, specularKS, shininess) };
+			const ColorRGB phong{ material.Shade(v, lightDirection, v.viewDirection) };
+			//const ColorRGB phong{ diffuse + Phong(kd, 1, lightDirection, v.viewDirection, v.normal) };
+			return phong * ObservedArea;
+		}
+
+		default: {
+			Material_LambertPhong phong{ Material_LambertPhong(v.color, kd, specularKS, shininess) };
+			const ColorRGB lambertPhong{ phong.Shade(v) };
+			return lambertPhong * ObservedArea;
+		}
 	}
 }
 
@@ -317,22 +432,23 @@ void Renderer::RenderTriangleList() const
 /// Render the Mesh with List topology
 /// </summary>
 /// <param name="mesh">The mesh as const ref</param>
-void Renderer::RenderMeshTriangleList(const Mesh& mesh) const
+void Renderer::RenderMeshTriangleList(const Mesh& mesh)
 {
 	ColorRGB finalColor{};
+	
 	//loop through indices (triangle ID's)
 	for (int indiceIter = 0; indiceIter < mesh.indices.size(); indiceIter += 3)
 	{
-		//for every 3rd indice, calculate the triangle and it's color
+		//for every 3rd indice, calculate the triangle
 		#pragma region Calculate the triangles from a mesh
-		const int indice1{ int(mesh.indices[indiceIter]) };
-		const int indice2{ int(mesh.indices[indiceIter + 1]) };
-		const int indice3{ int(mesh.indices[indiceIter + 2]) };
-		std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
+		const int indice1{ static_cast<int>(mesh.indices[indiceIter]) };
+		const int indice2{ static_cast<int>(mesh.indices[indiceIter + 1]) };
+		const int indice3{ static_cast<int>(mesh.indices[indiceIter + 2]) };
+		std::vector triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
 		#pragma endregion
 
-		std::vector<Vertex_Out> verts{ };
-		VertexTransformationFunction(triangleVerts, verts);
+		std::vector<Vertex_Out> verts{ };	
+		VertexTransformationFunction(triangleVerts, verts, mesh.worldMatrix);
 
 		#ifndef BOUNDINGBOX
 		HandleRenderNoBB(verts, finalColor);
@@ -347,32 +463,33 @@ void Renderer::RenderMeshTriangleList(const Mesh& mesh) const
 /// Render the Mesh with Strip topology
 /// </summary>
 /// <param name="mesh">The mesh as const ref</param>
-void Renderer::RenderMeshTriangleStrip(const Mesh& mesh) const
+void Renderer::RenderMeshTriangleStrip(const Mesh& mesh)
 {
 	ColorRGB finalColor{};
 	//loop through indices (triangle ID's)
 	const int size{ static_cast<int>(mesh.indices.size()) };
 	for (int indiceIter = 0; indiceIter < size; indiceIter++)
 	{
+
 		#pragma region Calculate the triangles from a mesh
 		int indice1{};
 		int indice2{};
 		int indice3{};
 		if (indiceIter == size / 2) {
-			indice1 = int(mesh.indices[indiceIter + 1]);
-			indice2 = int(mesh.indices[indiceIter + 2]);
-			indice3 = int(mesh.indices[indiceIter + 3]);
+			indice1 = static_cast<int>(mesh.indices[indiceIter + 1]);
+			indice2 = static_cast<int>(mesh.indices[indiceIter + 2]);
+			indice3 = static_cast<int>(mesh.indices[indiceIter + 3]);
 		}
 		else if (indiceIter < size - 2) {
-			indice1 = int(mesh.indices[indiceIter]);
-			indice2 = int(mesh.indices[indiceIter + 1]);
-			indice3 = int(mesh.indices[indiceIter + 2]);
+			indice1 = static_cast<int>(mesh.indices[indiceIter]);
+			indice2 = static_cast<int>(mesh.indices[indiceIter + 1]);
+			indice3 = static_cast<int>(mesh.indices[indiceIter + 2]);
 		}
-		std::vector<Vertex> triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
+		std::vector<Vertex_Out> verts{ };
+		std::vector triangleVerts{ mesh.vertices[indice1], mesh.vertices[indice2], mesh.vertices[indice3] };
 		#pragma endregion
 
-		std::vector<Vertex_Out> verts{ };
-		VertexTransformationFunction(triangleVerts, verts);
+		VertexTransformationFunction(triangleVerts, verts, mesh.worldMatrix);
 
 		#ifndef BOUNDINGBOX
 		HandleRenderNoBB(verts, finalColor);
@@ -388,12 +505,13 @@ void Renderer::RenderMeshTriangleStrip(const Mesh& mesh) const
 /// </summary>
 /// <param name="vertices_in">Original Vertexes</param>
 /// <param name="vertices_out">Vertexes to output</param>
-void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex_Out>& vertices_out) const
+/// <param name="worldMatrix">Worldmatrix from the mesh</param>
+void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex_Out>& vertices_out, const Matrix& worldMatrix) const
 {
 	vertices_out.resize(vertices_in.size());
 
 	//Add viewmatrix with camera space matrix
-	Matrix worldViewProjectionMatrix{ m_Camera.viewMatrix * m_Camera.projectionMatrix };
+	const Matrix worldViewProjectionMatrix{ worldMatrix * m_Camera.viewMatrix * m_Camera.projectionMatrix };
 
 	for (int i{}; i < vertices_in.size(); i++)
 	{
@@ -420,51 +538,40 @@ void Renderer::VertexTransformationFunction(const std::vector<Vertex>& vertices_
 
 		#ifdef W3_AND_UP
 		Vector4 point{ vertices_in[i].position, 1 };
-		
+
 		//Transform points to correct space
 		Vector4 transformedVert{ worldViewProjectionMatrix.TransformPoint(point) };
 
 		//Project point to 2d view plane (perspective divide)
+		const float projectedVertexW{ transformedVert.w };
 		float projectedVertexX{ transformedVert.x / transformedVert.w };
 		float projectedVertexY{ transformedVert.y / transformedVert.w };
 		float projectedVertexZ{ transformedVert.z / transformedVert.w };
-		float projectedVertexW{ transformedVert.w };
 		projectedVertexX = ((projectedVertexX + 1) / 2) * m_Width;
 		projectedVertexY = ((1 - projectedVertexY) / 2) * m_Height;
 
+		//transform normals to correct space and solve visibility problem
+		const Vector3 normal{ worldMatrix.TransformVector(vertices_in[i].normal) };
+		const Vector3 tangent{ worldMatrix.TransformVector(vertices_in[i].tangent) };
+
+		const Vector3 viewDirection{ m_Camera.origin - vertices_in[i].position };
+
 		if (!(projectedVertexX < -1 && projectedVertexX > 1) && !(projectedVertexY < -1 && projectedVertexY > 1)) {
-			//if (projectedVertexZ > 0 && projectedVertexZ < 1) {
-			Vertex_Out vert{ Vector4{projectedVertexX, projectedVertexY , projectedVertexZ, projectedVertexW}, vertices_in[i].color,  vertices_in[i].uv };
+			const Vertex_Out vert{ Vector4{projectedVertexX, projectedVertexY , projectedVertexZ, projectedVertexW}, vertices_in[i].color,  vertices_in[i].uv, normal, tangent, viewDirection };
 			vertices_out[i] = vert;
-			//}
 		}
 		#endif
-	}
-}
-
-/// <summary>
-/// Function that decides which render function to use based on primitive topology of a mesh
-/// </summary>
-void Renderer::RenderMesh() const
-{
-	//1 Loop through meshes
-	for (const Mesh& mesh : m_Meshes)
-	{
-		switch (mesh.primitiveTopology)
-		{
-		case PrimitiveTopology::TriangeList:
-			RenderMeshTriangleList(mesh);
-			break;
-		case PrimitiveTopology::TriangleStrip:
-			RenderMeshTriangleStrip(mesh);
-			break;
-		default:
-			break;
-		}
 	}
 }
 
 bool Renderer::SaveBufferToImage() const
 {
 	return SDL_SaveBMP(m_pBackBuffer, "Rasterizer_ColorBuffer.bmp");
+}
+
+void Renderer::CycleLightingMode() {
+	//if it's combined, start from first enum, otherwise take the next
+	m_LightingMode == LightingMode::Combined ?
+		m_LightingMode = LightingMode(0) :
+		m_LightingMode = LightingMode(static_cast<int>(m_LightingMode) + 1);
 }

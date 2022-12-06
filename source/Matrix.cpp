@@ -149,16 +149,25 @@ namespace dae {
 
 	Matrix Matrix::CreatePerspectiveFovLH(float fov, float aspect, float zn, float zf)
 	{
-		float differenceA{ zf - zn };
-		float differenceB{ -(zf * zn) };
-		float A{ zf / differenceA };
-		float B{ differenceB / differenceA };
+		const float differenceA{ zf - zn };
+		const float differenceB{ -(zf * zn) };
+		const float A{ zf / differenceA };
+		const float B{ differenceB / differenceA };
 
-		Vector4 x{ 1 / (aspect * fov), 0, 0, 0 };
-		Vector4 y{ 0, 1 / fov, 0, 0 };
-		Vector4 z{ 0, 0, A, 1 };
-		Vector4 w{ 0, 0, B, 0 };
+		const Vector4 x{ 1 / (aspect * fov), 0, 0, 0 };
+		const Vector4 y{ 0, 1 / fov, 0, 0 };
+		const Vector4 z{ 0, 0, A, 1 };
+		const Vector4 w{ 0, 0, B, 0 };
 		return Matrix{ x, y, z, w };
+
+		/*float A{ zf / (zf - zn) };
+		float B{ -(zf * zn) / (zf - zn) };
+		Matrix projectionMatrix{ Vector4{1 / (aspect * fov),0,0,0}
+			,Vector4{0,1 / fov,0,0}
+			,Vector4{0,0,A,1}
+		,Vector4{0,0,B,0}
+		};
+		return projectionMatrix;*/
 	}
 
 	Vector3 Matrix::GetAxisX() const

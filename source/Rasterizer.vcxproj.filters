@@ -47,6 +47,12 @@
     <ClInclude Include="Texture.h">
       <Filter>Misc</Filter>
     </ClInclude>
+    <ClInclude Include="Material.h">
+      <Filter>Math</Filter>
+    </ClInclude>
+    <ClInclude Include="BRDF.h">
+      <Filter>Math</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />

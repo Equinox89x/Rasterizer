@@ -27,7 +27,7 @@ namespace dae
 
 		float totalPitch{};
 		float totalYaw{};
-		const float rotationSpeed{ 1.f };
+		const float rotationSpeed{ 0.3f };
 		const float movementSpeed{ 5.f };
 
 		Matrix invViewMatrix{};
@@ -38,7 +38,6 @@ namespace dae
 		const float farZ{ 100.f };
 
 		float aspectRatio{ 0.f };
-		float aspectRatioOld{ 0.f };
 		
 		void Initialize(float _fovAngle = 90.f, Vector3 _origin = {0.f,0.f,0.f})
 		{
@@ -74,6 +73,7 @@ namespace dae
 		{
 			//ProjectionMatrix => Matrix::CreatePerspectiveFovLH(...)
 			projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspectRatio, nearZ, farZ);
+			projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspectRatio, nearZ, farZ);
 
 			//DirectX Implementation => https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixperspectivefovlh
 		}
@@ -87,12 +87,12 @@ namespace dae
 			int mouseX{}, mouseY{};
 			const uint32_t mouseState = SDL_GetRelativeMouseState(&mouseX, &mouseY);
 
-			const float rotSpeed{ deltaTime * rotationSpeed };
 			const Vector3 forwardSpeed{ forward * deltaTime * movementSpeed };
 			const Vector3 sideSpeed{ right * deltaTime * movementSpeed };
 			const Vector3 upSpeed{ up * deltaTime * movementSpeed };
 
 			if (SDL_BUTTON(mouseState) == 8) {
+				const float rotSpeed{ deltaTime * rotationSpeed };
 				totalPitch -= static_cast<float>(mouseX) * rotSpeed;
 				totalYaw -= static_cast<float>(mouseY) * rotSpeed;
 			}
@@ -122,6 +122,10 @@ namespace dae
 
 			forward = finalRot.TransformVector(Vector3::UnitZ);
 			forward.Normalize();
+			//up = finalRot.TransformVector(Vector3::UnitY);
+			//up.Normalize();
+			//right = finalRot.TransformVector(Vector3::UnitX);
+			//right.Normalize();
 
 			//Update Matrices
 			CalculateViewMatrix();

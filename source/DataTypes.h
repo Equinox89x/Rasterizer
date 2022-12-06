@@ -8,10 +8,10 @@ namespace dae
 	{
 		Vector3 position{};
 		ColorRGB color{colors::White};
-		Vector2 uv{}; //W3_AND_UP
-		Vector3 normal{}; //W4
-		Vector3 tangent{}; //W4
-		//Vector3 viewDirection{}; //W4
+		Vector2 uv{};
+		Vector3 normal{};
+		Vector3 tangent{};
+		Vector3 viewDirection{};
 	};
 
 	struct Vertex_Out
@@ -21,7 +21,7 @@ namespace dae
 		Vector2 uv{};
 		Vector3 normal{};
 		Vector3 tangent{};
-		//Vector3 viewDirection{};
+		Vector3 viewDirection{};
 	};
 
 	enum class PrimitiveTopology
@@ -38,5 +38,17 @@ namespace dae
 
 		std::vector<Vertex_Out> vertices_out{};
 		Matrix worldMatrix{};
+
+		Vector3 totalTranslation{};
+		Matrix rotationTransform{};
+		Matrix translationTransform{ {1,1,1},{1,1,1},{1,1,1},{1,1,1} };
+		Matrix scaleTransform{ {1,1,1},{1,1,1},{1,1,1},{1,1,1} };
+	};
+
+	enum class LightingMode {
+		ObservedArea,
+		Diffuse,
+		Specular,
+		Combined
 	};
 }
