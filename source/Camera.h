@@ -72,7 +72,7 @@ namespace dae
 		void CalculateProjectionMatrix()
 		{
 			//ProjectionMatrix => Matrix::CreatePerspectiveFovLH(...)
-			projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspectRatio, nearZ, farZ);
+			//projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspectRatio, nearZ, farZ);
 			projectionMatrix = Matrix::CreatePerspectiveFovLH(fov, aspectRatio, nearZ, farZ);
 
 			//DirectX Implementation => https://learn.microsoft.com/en-us/windows/win32/direct3d9/d3dxmatrixperspectivefovlh

@@ -75,7 +75,7 @@ namespace dae
 	class Material_LambertPhong final : public Material
 	{
 	public:
-		Material_LambertPhong(const ColorRGB& diffuseColor, float diffuseReflectance, float specularReflectance, float phongExponent) :
+		Material_LambertPhong(const ColorRGB& diffuseColor, float diffuseReflectance, ColorRGB specularReflectance, float phongExponent) :
 			m_DiffuseColor(diffuseColor), m_DiffuseReflectance(diffuseReflectance), m_SpecularReflectance(specularReflectance),
 			m_PhongExponent(phongExponent)
 		{
@@ -89,7 +89,7 @@ namespace dae
 	private:
 		ColorRGB m_DiffuseColor{ colors::White };
 		float m_DiffuseReflectance{ 0.5f }; //kd
-		float m_SpecularReflectance{ 0.5f }; //ks
+		ColorRGB m_SpecularReflectance{  }; //ks
 		float m_PhongExponent{ 1.f }; //Phong Exponent
 	};
 #pragma endregion

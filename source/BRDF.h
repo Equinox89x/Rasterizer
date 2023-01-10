@@ -31,12 +31,12 @@ namespace dae
 		 * \param n Normal of the Surface
 		 * \return Phong Specular Color
 		 */
-		static ColorRGB Phong(float ks, float exp, const Vector3& l, const Vector3& v, const Vector3& n)
+		static ColorRGB Phong(ColorRGB ks, float exp, const Vector3& l, const Vector3& v, const Vector3& n)
 		{
-			Vector3 reflect{ l - 2 * (Vector3::Dot(n,l) * n) };
-			float cosa{ Vector3::Dot(reflect, v) };
-			float calc{ ks * powf(cosa, exp) };
-			return ColorRGB{ calc, calc, calc };
+			const Vector3 reflect{ l - 2 * (Vector3::Dot(n,l) * n) };
+			const float cosa{ Vector3::Dot(reflect, v) };
+			const ColorRGB calc{ ks * powf(std::max(0.f, cosa), exp) };
+			return calc;
 		}
 
 		/**

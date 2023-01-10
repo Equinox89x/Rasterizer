@@ -15,7 +15,6 @@ struct SDL_Surface;
 #define W3_AND_UP
 
 //Features
-#define BOUNDINGBOX
 #define TEXTURE
 
 //Triangle topologies & meshes
@@ -43,7 +42,7 @@ namespace dae
 		Renderer& operator=(Renderer&&) noexcept = delete;
 
 		void Update(Timer* pTimer);
-		void Render();
+		void Render() const;
 
 		void CycleLightingMode();
 		void ToggleRotation() { m_HasRotation = !m_HasRotation; }
@@ -57,9 +56,9 @@ namespace dae
 		SDL_Surface* m_pFrontBuffer{ nullptr };
 		SDL_Surface* m_pBackBuffer{ nullptr };
 		uint32_t* m_pBackBufferPixels{};
-
 		float* m_pDepthBuffer{};
 		ColorRGB* m_pColorBuffer{};
+
 		#ifdef TEXTURE
 		Texture* m_pTexture{ nullptr };
 		Texture* m_pNormals{ nullptr };
@@ -68,28 +67,26 @@ namespace dae
 		#endif
 
 		Camera m_Camera{};
-
 		int m_Width{};
 		int m_Height{};
 
-		LightingMode m_LightingMode{ LightingMode::ObservedArea };
-
+		LightingMode m_LightingMode{ LightingMode::Specular };
 		Vector3 lightDirection{ .577f, -.577f, .577f };
 
-		bool m_HasRotation{ true };
+		bool m_HasRotation{ false };
 		bool m_HasNormalMap{ true };
+		float m_RotationAngle{ 0 };
 
 		//Function that transforms the vertices from the mesh from World space to Screen space
 		void VertexTransformationFunction(const std::vector<Vertex>& vertices_in, std::vector<Vertex_Out>& vertices_out, const Matrix& worldMatrix) const;
 
-		void HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor);
-		void HandleRenderNoBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor);
-		Vertex_Out CalculateVertexWithAttributes(const std::vector<Vertex_Out>& verts, float w0, float w1, float w2, float& outShininess, float& outSpecularKS) const;
-		ColorRGB PixelShading(const Vertex_Out& v, const float shininess, const float specularKS) const;
+		void HandleRenderBB(std::vector<Vertex_Out>& verts, ColorRGB& finalColor) const;
+		
+		Vertex_Out CalculateVertexWithAttributes(const std::vector<Vertex_Out>& verts, float w0, float w1, float w2, float& outGloss, ColorRGB& outSpecularKS) const;
+		ColorRGB PixelShading(const Vertex_Out& v, const float gloss, const ColorRGB specularKS) const;
 
-		void RenderMeshTriangleStrip(const Mesh& mesh);
-		void RenderMeshTriangleList(const Mesh& mesh);
-		//ColorRGB PixelShading(const Vertex_Out& v) const;
+		void RenderMeshTriangleStrip(const Mesh& mesh) const;
+		void RenderMeshTriangleList(const Mesh& mesh) const;
 
 
 		#ifdef Strip
